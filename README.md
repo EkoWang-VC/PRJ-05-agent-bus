@@ -131,6 +131,8 @@ status: review-candidate
 # 在 agent-bus 仓库根目录运行
 make test
 
+make registry-check
+
 make smoke
 
 make smoke-cli AGENT=claude REQUEST=requests/REQ-XXX.json
@@ -172,6 +174,9 @@ python3 scripts/codex_worker.py \
 
 - `make test`
   - 运行当前全部 `unittest` 回归
+- `make registry-check`
+  - 校验 `registry.json` 与当前仓库布局是否一致
+  - 检查 `worker_script`、`response_profile`、超时与 lease 配置等字段
 - `make smoke`
   - 先跑 `make test`
   - 再跑一次 `queue_sync.py`

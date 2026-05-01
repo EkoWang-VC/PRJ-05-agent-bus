@@ -9,10 +9,13 @@ MODEL ?=
 EXTRA_ARGS ?=
 EXAMPLE_REQUEST ?= examples/smoke-cli.request.json
 
-.PHONY: test smoke smoke-cli smoke-cli-example
+.PHONY: test smoke smoke-cli smoke-cli-example registry-check
 
 test:
 	$(PYTHON) -m unittest discover -s tests -q
+
+registry-check:
+	$(PYTHON) scripts/check_registry.py --registry registry.json --repo-root .
 
 smoke: test
 	$(PYTHON) scripts/queue_sync.py --requests-dir requests --responses-dir responses --out $(SMOKE_REPORT)

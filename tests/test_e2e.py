@@ -37,6 +37,24 @@ class AgentBusE2ETest(unittest.TestCase):
     def read_json(self, path: Path) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def test_registry_health_check(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/check_registry.py",
+                "--registry",
+                "registry.json",
+                "--repo-root",
+                ".",
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertIn("registry_ok: true", result.stdout)
+        self.assertIn("agent_count: 5", result.stdout)
+
     def test_worker_check_response_and_queue_sync(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
