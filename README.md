@@ -133,6 +133,8 @@ make smoke
 
 make smoke-cli AGENT=claude REQUEST=requests/REQ-XXX.json
 
+make smoke-cli-example AGENT=claude
+
 python3 scripts/create_request.py \
   "/absolute/path/to/Task-Specs/CONTENT-20260504-02.md"
 
@@ -182,6 +184,11 @@ python3 scripts/codex_worker.py \
     - `MODEL=...`
     - `TIMEOUT=...`
     - `EXTRA_ARGS='...'`
+- `make smoke-cli-example AGENT=<agent>`
+  - 复用仓库内置的最小示例 request：
+    [examples/smoke-cli.request.json](/Users/ekowang/Library/CloudStorage/OneDrive-个人/应用/remotely-save/个人/70-Vibe%20Coding%20(Vibe%20Coding)/06-%E4%BB%A3%E7%A0%81%E5%BA%93%20(Code%20Repository)/agent-bus/examples/smoke-cli.request.json:1)
+  - 默认产出 Markdown 会写到 `examples/outputs/smoke-cli-output.md`
+  - `AGENT` 决定实际调用哪个 worker，示例 request 本身只作为最小输入载体
 
 ### Queue Sync 约定
 

@@ -7,8 +7,9 @@ RESPONSE_OUT ?= /tmp/agent-bus-cli-smoke-$(AGENT).json
 TIMEOUT ?= 45
 MODEL ?=
 EXTRA_ARGS ?=
+EXAMPLE_REQUEST ?= examples/smoke-cli.request.json
 
-.PHONY: test smoke smoke-cli
+.PHONY: test smoke smoke-cli smoke-cli-example
 
 test:
 	$(PYTHON) -m unittest discover -s tests -q
@@ -32,3 +33,6 @@ smoke-cli:
 	if [ -n "$(EXTRA_ARGS)" ]; then set -- "$$@" $(EXTRA_ARGS); fi; \
 	"$$@"; \
 	printf 'smoke_cli_response=%s\n' "$(RESPONSE_OUT)"
+
+smoke-cli-example:
+	@$(MAKE) smoke-cli AGENT="$(AGENT)" REQUEST="$(EXAMPLE_REQUEST)" OUTPUT_ROOT="$(OUTPUT_ROOT)" RESPONSE_OUT="$(RESPONSE_OUT)" TIMEOUT="$(TIMEOUT)" MODEL="$(MODEL)" EXTRA_ARGS="$(EXTRA_ARGS)"

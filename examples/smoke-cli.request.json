@@ -1,0 +1,27 @@
+{
+  "request_id": "REQ-SMOKE-CLI-001",
+  "task_id": "TASK-SMOKE-CLI-001",
+  "from_agent": "operator",
+  "to_agent": "claude",
+  "domain": "vibe-coding",
+  "task_type": "review",
+  "title": "AGENT-BUS CLI smoke request",
+  "source_docs": [
+    "README.md",
+    "docs/architecture.md"
+  ],
+  "output_path": "examples/outputs/smoke-cli-output.md",
+  "prompt_summary": "基于仓库说明做一次最小 CLI smoke，输出结构化 Markdown。",
+  "output_schema": {
+    "format": "markdown",
+    "required_sections": [
+      "## Findings"
+    ]
+  },
+  "queue_context": {
+    "task_status": "待执行",
+    "verify_by": "manual"
+  },
+  "status": "pending",
+  "created_at": "2026-05-02T12:00:00+08:00"
+}
