@@ -131,6 +131,8 @@ make test
 
 make smoke
 
+make smoke-cli AGENT=claude REQUEST=requests/REQ-XXX.json
+
 python3 scripts/create_request.py \
   "/absolute/path/to/Task-Specs/CONTENT-20260504-02.md"
 
@@ -170,6 +172,16 @@ python3 scripts/codex_worker.py \
   - 先跑 `make test`
   - 再跑一次 `queue_sync.py`
   - 默认把 smoke 报告写到 `/tmp/agent-bus-queue-sync-smoke.md`
+- `make smoke-cli AGENT=<agent> REQUEST=<request-json>`
+  - 统一触发真实 CLI smoke
+  - 当前支持：`claude` / `claude-ds` / `codex` / `gemini`
+  - 默认附带 `--invoke-cli --preflight --timeout-seconds 45`
+  - 可选变量：
+    - `OUTPUT_ROOT=...`
+    - `RESPONSE_OUT=...`
+    - `MODEL=...`
+    - `TIMEOUT=...`
+    - `EXTRA_ARGS='...'`
 
 ### Queue Sync 约定
 
