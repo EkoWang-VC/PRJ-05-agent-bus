@@ -1,0 +1,52 @@
+{
+  "version": "0.1",
+  "updated": "2026-05-01",
+  "agents": [
+    {
+      "agent_id": "claude",
+      "provider": "anthropic",
+      "mode": "terminal-cli",
+      "capabilities": ["planning", "verification", "routing"],
+      "domains": ["workflow", "system", "coding"],
+      "status": "unknown",
+      "accepts_bus_requests": true
+    },
+    {
+      "agent_id": "claude-ds",
+      "provider": "anthropic+deepseek",
+      "mode": "terminal-cli",
+      "capabilities": ["analysis", "writing", "deep-reasoning"],
+      "domains": ["content", "strategy", "research"],
+      "status": "unknown",
+      "accepts_bus_requests": true,
+      "notes": "独立启动的 Claude-DS 执行器；默认仍通过 claude CLI 触发，但保留单独 worker 与 CLI 路径配置。"
+    },
+    {
+      "agent_id": "codex",
+      "provider": "openai",
+      "mode": "terminal-cli",
+      "capabilities": ["coding", "review", "verification"],
+      "domains": ["coding", "workflow", "system"],
+      "status": "unknown",
+      "accepts_bus_requests": true
+    },
+    {
+      "agent_id": "gemini",
+      "provider": "google",
+      "mode": "terminal-cli",
+      "capabilities": ["analysis", "research", "writing"],
+      "domains": ["content", "strategy", "research"],
+      "status": "unknown",
+      "accepts_bus_requests": true
+    },
+    {
+      "agent_id": "qwencode",
+      "provider": "alibaba",
+      "mode": "terminal-cli",
+      "capabilities": ["coding"],
+      "domains": ["coding"],
+      "status": "unknown",
+      "accepts_bus_requests": false
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "request_id": "REQ-20260501-001",
+  "handled_by": "gemini",
+  "status": "completed",
+  "started_at": "2026-05-01T10:02:00+08:00",
+  "completed_at": "2026-05-01T10:06:00+08:00",
+  "output_path": "80-投资 (Investment)/02-日常复盘 (Daily Backtests)/2026-05-01-Strategy-A-Gemini评估.md",
+  "summary": "Adopt P1/P2/P6, keep P3 as a review trigger, defer P4/P5.",
+  "error": ""
+}

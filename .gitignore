@@ -1,0 +1,8 @@
+requests/*
+responses/*
+leases/*
+!requests/.gitkeep
+!responses/.gitkeep
+!leases/.gitkeep
+__pycache__/
+*.pyc
