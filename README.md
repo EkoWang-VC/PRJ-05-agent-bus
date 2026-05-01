@@ -127,6 +127,10 @@ status: review-candidate
 
 ```bash
 # 在 agent-bus 仓库根目录运行
+make test
+
+make smoke
+
 python3 scripts/create_request.py \
   "/absolute/path/to/Task-Specs/CONTENT-20260504-02.md"
 
@@ -157,6 +161,15 @@ python3 scripts/claude_ds_worker.py \
 python3 scripts/codex_worker.py \
   --watch --once --poll-seconds 1 --output-root "." --lease-ttl-seconds 60
 ```
+
+### 统一验证入口
+
+- `make test`
+  - 运行当前全部 `unittest` 回归
+- `make smoke`
+  - 先跑 `make test`
+  - 再跑一次 `queue_sync.py`
+  - 默认把 smoke 报告写到 `/tmp/agent-bus-queue-sync-smoke.md`
 
 ### Queue Sync 约定
 
