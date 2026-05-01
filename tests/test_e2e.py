@@ -135,6 +135,21 @@ class AgentBusE2ETest(unittest.TestCase):
                 json.dumps(orphan_request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
 
+            invalid_request = {
+                "request_id": "REQ-E2E-INVALID",
+                "task_id": "TASK-E2E-INVALID",
+                "to_agent": "qwencode",
+                "title": "Invalid request",
+                "prompt_summary": "registry 中不可调度",
+                "source_docs": [],
+                "output_path": "outputs/invalid.md",
+                "output_schema": {"required_sections": []},
+                "queue_context": {"task_status": "待执行"},
+            }
+            (requests_dir / "REQ-E2E-INVALID.json").write_text(
+                json.dumps(invalid_request, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
+
             ghost_response = {
                 "request_id": "REQ-E2E-GHOST",
                 "task_id": "TASK-E2E-GHOST",
@@ -160,6 +175,8 @@ class AgentBusE2ETest(unittest.TestCase):
                     "scripts/queue_sync.py",
                     "--requests-dir",
                     str(requests_dir),
+                    "--registry",
+                    "registry.json",
                     "--responses-dir",
                     str(responses_dir),
                     "--out",
@@ -173,12 +190,16 @@ class AgentBusE2ETest(unittest.TestCase):
             self.assertIn(str(report_path), sync.stdout)
 
             report = report_path.read_text(encoding="utf-8")
-            self.assertIn("- 总 request 数：2", report)
+            self.assertIn("- 总 request 数：3", report)
             self.assertIn("- 总 response 数：2", report)
             self.assertIn("- 孤儿 request：1", report)
+            self.assertIn("- 不可调度 request：1", report)
             self.assertIn("- 幽灵 response：1", report)
             self.assertIn("## 孤儿 Request", report)
             self.assertIn("REQ-E2E-ORPHAN", report)
+            self.assertIn("## 不可调度 Request", report)
+            self.assertIn("REQ-E2E-INVALID", report)
+            self.assertIn("当前不接受 bus request", report)
             self.assertIn("## 幽灵 Response", report)
             self.assertIn("REQ-E2E-GHOST", report)
 

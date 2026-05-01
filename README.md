@@ -181,6 +181,7 @@ python3 scripts/codex_worker.py \
   - 先跑 `make test`
   - 再跑一次 `queue_sync.py`
   - 默认把 smoke 报告写到 `/tmp/agent-bus-queue-sync-smoke.md`
+  - 同时检查 request 指向的 agent 是否在 `registry.json` 中可调度
 - `make smoke-cli AGENT=<agent> REQUEST=<request-json>`
   - 统一触发真实 CLI smoke
   - 当前支持：`claude` / `claude-ds` / `codex` / `gemini`
