@@ -1,43 +1,84 @@
 {
-  "version": "0.1",
-  "updated": "2026-05-01",
+  "version": "0.2",
+  "updated": "2026-05-02",
   "agents": [
     {
       "agent_id": "claude",
       "provider": "anthropic",
       "mode": "terminal-cli",
-      "capabilities": ["planning", "verification", "routing"],
+      "capabilities": ["planning", "verification", "routing", "generic-markdown-output"],
       "domains": ["workflow", "system", "coding"],
       "status": "unknown",
-      "accepts_bus_requests": true
+      "accepts_bus_requests": true,
+      "worker_script": "scripts/claude_worker.py",
+      "supports_watch": true,
+      "supports_invoke_cli": true,
+      "supports_preflight": true,
+      "response_profile": "generic",
+      "default_timeout_seconds": 45,
+      "default_lease_ttl_seconds": 60
     },
     {
       "agent_id": "claude-ds",
       "provider": "anthropic+deepseek",
       "mode": "terminal-cli",
-      "capabilities": ["analysis", "writing", "deep-reasoning"],
+      "capabilities": [
+        "analysis",
+        "writing",
+        "deep-reasoning",
+        "generic-markdown-output",
+        "deepseek-env-injection"
+      ],
       "domains": ["content", "strategy", "research"],
       "status": "unknown",
       "accepts_bus_requests": true,
-      "notes": "独立启动的 Claude-DS 执行器；默认仍通过 claude CLI 触发，但保留单独 worker 与 CLI 路径配置。"
+      "worker_script": "scripts/claude_ds_worker.py",
+      "supports_watch": true,
+      "supports_invoke_cli": true,
+      "supports_preflight": true,
+      "response_profile": "generic",
+      "default_timeout_seconds": 45,
+      "default_lease_ttl_seconds": 60,
+      "notes": "独立启动的 Claude-DS 执行器；默认通过独立 worker 调用 claude CLI，并在子进程级注入 DeepSeek 兼容环境。"
     },
     {
       "agent_id": "codex",
       "provider": "openai",
       "mode": "terminal-cli",
-      "capabilities": ["coding", "review", "verification"],
+      "capabilities": ["coding", "review", "verification", "generic-markdown-output"],
       "domains": ["coding", "workflow", "system"],
       "status": "unknown",
-      "accepts_bus_requests": true
+      "accepts_bus_requests": true,
+      "worker_script": "scripts/codex_worker.py",
+      "supports_watch": true,
+      "supports_invoke_cli": true,
+      "supports_preflight": true,
+      "response_profile": "generic",
+      "default_timeout_seconds": 45,
+      "default_lease_ttl_seconds": 60
     },
     {
       "agent_id": "gemini",
       "provider": "google",
       "mode": "terminal-cli",
-      "capabilities": ["analysis", "research", "writing"],
+      "capabilities": [
+        "analysis",
+        "research",
+        "writing",
+        "structured-decision-output",
+        "generic-markdown-output"
+      ],
       "domains": ["content", "strategy", "research"],
       "status": "unknown",
-      "accepts_bus_requests": true
+      "accepts_bus_requests": true,
+      "worker_script": "scripts/gemini_worker.py",
+      "supports_watch": true,
+      "supports_invoke_cli": true,
+      "supports_preflight": true,
+      "response_profile": "decision-structured",
+      "default_timeout_seconds": 45,
+      "default_lease_ttl_seconds": 60,
+      "notes": "Gemini worker 除通用 response 外，还支持 P1-P6 决策归类与更严格的 queue_readiness 判定。"
     },
     {
       "agent_id": "qwencode",
@@ -46,7 +87,13 @@
       "capabilities": ["coding"],
       "domains": ["coding"],
       "status": "unknown",
-      "accepts_bus_requests": false
+      "accepts_bus_requests": false,
+      "worker_script": "",
+      "supports_watch": false,
+      "supports_invoke_cli": false,
+      "supports_preflight": false,
+      "response_profile": "none",
+      "notes": "仅保留为未来预留项，当前仓库未提供对应 worker。"
     }
   ]
 }

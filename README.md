@@ -97,6 +97,7 @@ status: review-candidate
 - 高层任务入口：`../TASK-QUEUE.md`
 - 架构说明：`docs/architecture.md`
 - 工作流集成：`docs/workflow-integration.md`
+- 能力矩阵：`docs/capabilities.md`
 - 运维手册：`docs/operations.md`
 
 ## 当前建议用法
