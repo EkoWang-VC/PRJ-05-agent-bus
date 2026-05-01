@@ -65,7 +65,7 @@ status: review-candidate
 - `scripts/worker_common.py`
   Claude / Claude-DS / Codex 共用的多 Agent worker 核心
 - `scripts/queue_sync.py`
-  读取 `responses/`，生成面向 `TASK-QUEUE` 的推进建议报告
+  读取 `requests/` + `responses/`，生成面向 `TASK-QUEUE` 的推进建议报告，并标记孤儿 request / 幽灵 response
 - `examples/request.example.json`
   请求样例
 - `examples/response.example.json`
@@ -146,6 +146,8 @@ python3 scripts/gemini_worker.py \
 
 python3 scripts/queue_sync.py
 
+python3 -m unittest discover -s tests -q
+
 python3 scripts/claude_worker.py \
   --watch --once --poll-seconds 1 --output-root "." --lease-ttl-seconds 60
 
@@ -155,3 +157,12 @@ python3 scripts/claude_ds_worker.py \
 python3 scripts/codex_worker.py \
   --watch --once --poll-seconds 1 --output-root "." --lease-ttl-seconds 60
 ```
+
+### Queue Sync 约定
+
+- `queue_sync.py` 会同时读取 `requests/` 与 `responses/`
+- `孤儿 request`
+  - request 存在，但还没有同名 `response`
+- `幽灵 response`
+  - response 存在，但没有对应 request
+- 这两个状态都只做报告，不直接改写任何队列文件

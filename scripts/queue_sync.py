@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize AGENT-BUS responses into a queue-facing markdown report."""
+"""Summarize AGENT-BUS requests/responses into a queue-facing markdown report."""
 
 from __future__ import annotations
 
@@ -13,6 +13,15 @@ from pathlib import Path
 def load_responses(responses_dir: Path) -> list[dict]:
     rows: list[dict] = []
     for path in sorted(responses_dir.glob("*.json")):
+        if path.name == ".gitkeep":
+            continue
+        rows.append(json.loads(path.read_text(encoding="utf-8")))
+    return rows
+
+
+def load_requests(requests_dir: Path) -> list[dict]:
+    rows: list[dict] = []
+    for path in sorted(requests_dir.glob("*.json")):
         if path.name == ".gitkeep":
             continue
         rows.append(json.loads(path.read_text(encoding="utf-8")))
@@ -42,8 +51,33 @@ def render_entry(row: dict) -> str:
     return f"- `{task_id}` / `{request_id}` | `{status}` -> 建议 `{recommended}`{suffix}\n  {reason}"
 
 
-def build_report(rows: list[dict]) -> str:
-    buckets = classify(rows)
+def build_request_response_index(
+    requests: list[dict],
+    responses: list[dict],
+) -> tuple[list[dict], list[dict]]:
+    response_ids = {row.get("request_id", "") for row in responses}
+    request_ids = {row.get("request_id", "") for row in requests}
+
+    orphan_requests = [
+        row for row in requests if row.get("request_id", "") not in response_ids
+    ]
+    ghost_responses = [
+        row for row in responses if row.get("request_id", "") not in request_ids
+    ]
+    return orphan_requests, ghost_responses
+
+
+def render_request_entry(row: dict) -> str:
+    return (
+        f"- `{row.get('task_id', '—')}` / `{row.get('request_id', '—')}`"
+        f" -> `{row.get('to_agent', '—')}`\n"
+        f"  {row.get('title', '') or row.get('prompt_summary', '')}"
+    )
+
+
+def build_report(requests: list[dict], responses: list[dict]) -> str:
+    buckets = classify(responses)
+    orphan_requests, ghost_responses = build_request_response_index(requests, responses)
     lines: list[str] = []
     now = datetime.now().astimezone().isoformat(timespec="seconds")
 
@@ -63,10 +97,13 @@ def build_report(rows: list[dict]) -> str:
             "",
             "## 概览",
             "",
-            f"- 总 response 数：{len(rows)}",
+            f"- 总 request 数：{len(requests)}",
+            f"- 总 response 数：{len(responses)}",
             f"- 可推进：{len(buckets['ready'])}",
             f"- 失败：{len(buckets['failed'])}",
             f"- 待人工复核：{len(buckets['needs_review'])}",
+            f"- 孤儿 request：{len(orphan_requests)}",
+            f"- 幽灵 response：{len(ghost_responses)}",
             "",
             "## 可推进",
             "",
@@ -90,20 +127,35 @@ def build_report(rows: list[dict]) -> str:
     else:
         lines.append("- 当前为空")
 
+    lines.extend(["", "## 孤儿 Request", ""])
+    if orphan_requests:
+        lines.extend(render_request_entry(row) for row in orphan_requests)
+    else:
+        lines.append("- 当前为空")
+
+    lines.extend(["", "## 幽灵 Response", ""])
+    if ghost_responses:
+        lines.extend(render_entry(row) for row in ghost_responses)
+    else:
+        lines.append("- 当前为空")
+
     lines.append("")
     return "\n".join(lines)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--requests-dir", default="requests")
     parser.add_argument("--responses-dir", default="70-Vibe Coding (Vibe Coding)/04-工作流 (Workflow)/AGENT-BUS/responses")
     parser.add_argument("--out", default="70-Vibe Coding (Vibe Coding)/04-工作流 (Workflow)/AGENT-BUS-QUEUE-SYNC-REPORT.md")
     args = parser.parse_args()
 
+    requests_dir = Path(args.requests_dir)
     responses_dir = Path(args.responses_dir)
     out_path = Path(args.out)
-    rows = load_responses(responses_dir)
-    report = build_report(rows)
+    requests = load_requests(requests_dir)
+    responses = load_responses(responses_dir)
+    report = build_report(requests, responses)
     out_path.write_text(report, encoding="utf-8")
     print(str(out_path))
     return 0
