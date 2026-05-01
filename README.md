@@ -59,7 +59,7 @@ status: review-candidate
 - `scripts/claude_worker.py`
   Claude 的通用 CLI worker 原型
 - `scripts/claude_ds_worker.py`
-  Claude-DS 的独立 CLI worker 原型；默认直接调用 `claude`，但在登录 shell 中注入 DeepSeek 兼容环境，等价复现 `claude-ds` 语义，并单独占用 `claude-ds` 路由、lease 和 response
+  Claude-DS 的独立 CLI worker 原型；默认直接调用 `claude`，并仅在 Claude 子进程级注入 DeepSeek 兼容环境，单独占用 `claude-ds` 路由、lease 和 response
 - `scripts/codex_worker.py`
   Codex 的通用 CLI worker 原型
 - `scripts/worker_common.py`
@@ -84,7 +84,7 @@ status: review-candidate
 - `claude-ds`
   独立的 Claude-DS 执行器，语义上代表“单独启动的 Claude + DeepSeek 风格分析链路”
   - 默认通过 `claude` CLI + DeepSeek 环境注入启动
-  - worker 会主动清理代理环境，并将 `DEEPSEEK_API_KEY` 映射为当前 Claude CLI 可识别的 `ANTHROPIC_API_KEY`
+  - worker 会主动清理代理环境，并仅在 Claude 子进程的 `env` 中将 `DEEPSEEK_API_KEY` 映射为当前 Claude CLI 可识别的 `ANTHROPIC_API_KEY`
   - 可用 `--cli-bin` 指向未来的专用二进制或封装脚本
   - 可用 `--claude-agent-name` 绑定已有 Claude custom agent
 - `gemini`
@@ -95,7 +95,8 @@ status: review-candidate
 ## 对外关系
 
 - 高层任务入口：`../TASK-QUEUE.md`
-- 架构说明：`../AGENT-BUS-DESIGN.md`
+- 架构说明：`docs/architecture.md`
+- 工作流集成：`docs/workflow-integration.md`
 
 ## 当前建议用法
 
@@ -104,31 +105,32 @@ status: review-candidate
 ### 最小原型命令
 
 ```bash
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/create_request.py" \
-  "04-工作流 (Workflow)/Task-Specs/CONTENT-20260504-02.md"
+# 在 agent-bus 仓库根目录运行
+python3 scripts/create_request.py \
+  "/absolute/path/to/Task-Specs/CONTENT-20260504-02.md"
 
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/check_response.py" \
-  "04-工作流 (Workflow)/AGENT-BUS/responses/REQ-20260501-001-CONTENT-20260504-02.json"
+python3 scripts/check_response.py \
+  "responses/REQ-20260501-001-CONTENT-20260504-02.json"
 
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/gemini_worker.py" \
-  "04-工作流 (Workflow)/AGENT-BUS/requests/REQ-TEST-20260501-CONTENT-20260504-02.json" \
+python3 scripts/gemini_worker.py \
+  "requests/REQ-TEST-20260501-CONTENT-20260504-02.json" \
   --output-root "."
 
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/gemini_worker.py" \
+python3 scripts/gemini_worker.py \
   --watch --once --poll-seconds 1 --output-root "."
 
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/gemini_worker.py" \
-  "04-工作流 (Workflow)/AGENT-BUS/requests/REQ-TEST-20260501-CONTENT-20260504-02.json" \
+python3 scripts/gemini_worker.py \
+  "requests/REQ-TEST-20260501-CONTENT-20260504-02.json" \
   --output-root "." --invoke-cli --preflight --model "gemini-3.1-pro-preview" --timeout-seconds 45
 
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/queue_sync.py"
+python3 scripts/queue_sync.py
 
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/claude_worker.py" \
+python3 scripts/claude_worker.py \
   --watch --once --poll-seconds 1 --output-root "."
 
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/claude_ds_worker.py" \
+python3 scripts/claude_ds_worker.py \
   --watch --once --poll-seconds 1 --output-root "."
 
-python3 "04-工作流 (Workflow)/AGENT-BUS/scripts/codex_worker.py" \
+python3 scripts/codex_worker.py \
   --watch --once --poll-seconds 1 --output-root "."
 ```

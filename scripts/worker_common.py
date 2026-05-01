@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import time
@@ -53,6 +54,7 @@ def invoke_streaming_command(
     cmd: list[str],
     cwd: Path,
     timeout_seconds: float,
+    env: dict[str, str] | None = None,
 ) -> tuple[bool, str, str]:
     proc = subprocess.Popen(
         cmd,
@@ -62,6 +64,7 @@ def invoke_streaming_command(
         encoding="utf-8",
         cwd=str(cwd),
         bufsize=1,
+        env=env if env is not None else os.environ.copy(),
     )
     assert proc.stdout is not None
     assert proc.stderr is not None

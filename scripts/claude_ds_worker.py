@@ -10,13 +10,16 @@ calling that shell function verbatim:
 - force DeepSeek-compatible model envs
 
 This preserves separate routing and execution behavior without depending on a
-potentially stale shell alias/function implementation.
+potentially stale shell alias/function implementation. Environment overrides are
+injected only into the Claude subprocess, not written back to the parent
+process.
 """
 
 from __future__ import annotations
 
 import argparse
-import shlex
+import os
+import subprocess
 from pathlib import Path
 
 from worker_common import (
@@ -38,6 +41,20 @@ def claude_ds_prompt_builder(request: dict, output_root: Path) -> str:
     return build_generic_prompt(request, output_root, "Claude-DS")
 
 
+def load_deepseek_api_key_from_login_shell() -> str:
+    try:
+        result = subprocess.run(
+            ["/bin/zsh", "-lic", 'printf %s "${DEEPSEEK_API_KEY:-}"'],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+    except OSError:
+        return ""
+    return result.stdout.strip()
+
+
 def claude_ds_cli_invoker(
     prompt: str,
     output_root: Path,
@@ -47,7 +64,7 @@ def claude_ds_cli_invoker(
     cli_bin: str,
     claude_agent_name: str | None,
 ) -> tuple[bool, str, str]:
-    inner_cmd = [
+    cmd = [
         cli_bin,
         "-p",
         prompt,
@@ -60,26 +77,41 @@ def claude_ds_cli_invoker(
         CLAUDE_DS_SYSTEM_PROMPT,
     ]
     if claude_agent_name:
-        inner_cmd.extend(["--agent", claude_agent_name])
+        cmd.extend(["--agent", claude_agent_name])
     if model:
-        inner_cmd.extend(["--model", model])
-    shell_cmd = " ".join(shlex.quote(part) for part in inner_cmd)
-    bootstrap = "\n".join(
-        [
-            "unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy",
-            'export ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic"',
-            'if [ -n "${DEEPSEEK_API_KEY:-}" ]; then export ANTHROPIC_API_KEY="$DEEPSEEK_API_KEY"; fi',
-            'export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-deepseek-v4-pro}"',
-            'export ANTHROPIC_DEFAULT_OPUS_MODEL="${ANTHROPIC_DEFAULT_OPUS_MODEL:-deepseek-v4-pro}"',
-            'export ANTHROPIC_DEFAULT_SONNET_MODEL="${ANTHROPIC_DEFAULT_SONNET_MODEL:-deepseek-v4-pro}"',
-            'export ANTHROPIC_DEFAULT_HAIKU_MODEL="${ANTHROPIC_DEFAULT_HAIKU_MODEL:-deepseek-v4-flash}"',
-            'export CLAUDE_CODE_SUBAGENT_MODEL="${CLAUDE_CODE_SUBAGENT_MODEL:-deepseek-v4-flash}"',
-            'export CLAUDE_CODE_EFFORT_LEVEL="${CLAUDE_CODE_EFFORT_LEVEL:-max}"',
-            f"exec {shell_cmd}",
-        ]
+        cmd.extend(["--model", model])
+
+    env = os.environ.copy()
+    for key in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ):
+        env.pop(key, None)
+
+    env["ANTHROPIC_BASE_URL"] = "https://api.deepseek.com/anthropic"
+    deepseek_api_key = env.get("DEEPSEEK_API_KEY", "")
+    if not deepseek_api_key:
+        deepseek_api_key = load_deepseek_api_key_from_login_shell()
+    if deepseek_api_key:
+        env["DEEPSEEK_API_KEY"] = deepseek_api_key
+        env["ANTHROPIC_API_KEY"] = deepseek_api_key
+    env.setdefault("ANTHROPIC_MODEL", "deepseek-v4-pro")
+    env.setdefault("ANTHROPIC_DEFAULT_OPUS_MODEL", "deepseek-v4-pro")
+    env.setdefault("ANTHROPIC_DEFAULT_SONNET_MODEL", "deepseek-v4-pro")
+    env.setdefault("ANTHROPIC_DEFAULT_HAIKU_MODEL", "deepseek-v4-flash")
+    env.setdefault("CLAUDE_CODE_SUBAGENT_MODEL", "deepseek-v4-flash")
+    env.setdefault("CLAUDE_CODE_EFFORT_LEVEL", "max")
+
+    return invoke_streaming_command(
+        cmd,
+        cwd=output_root,
+        timeout_seconds=timeout_seconds,
+        env=env,
     )
-    cmd = ["/bin/zsh", "-lic", bootstrap]
-    return invoke_streaming_command(cmd, cwd=output_root, timeout_seconds=timeout_seconds)
 
 
 def main() -> int:
