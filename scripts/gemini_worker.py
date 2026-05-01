@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import signal
 import subprocess
 import time
 from selectors import DefaultSelector, EVENT_READ
@@ -326,14 +328,80 @@ def process_request_file(
     return out_path
 
 
-def try_acquire_lease(lease_path: Path) -> bool:
+def _read_lease_payload(lease_path: Path) -> dict | None:
+    try:
+        return json.loads(lease_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+
+
+def _lease_is_expired(payload: dict, now_ts: float) -> bool:
+    expires_at = str(payload.get("expires_at", "")).strip()
+    if not expires_at:
+        return True
+    try:
+        expires_ts = datetime.fromisoformat(expires_at).timestamp()
+    except ValueError:
+        return True
+    return expires_ts <= now_ts
+
+
+def try_acquire_lease(lease_path: Path, request_id: str, lease_ttl_seconds: int) -> bool:
     lease_path.parent.mkdir(parents=True, exist_ok=True)
+    now = datetime.now().astimezone()
+    now_ts = now.timestamp()
+    if lease_path.exists():
+        payload = _read_lease_payload(lease_path)
+        if payload is None or _lease_is_expired(payload, now_ts):
+            try:
+                lease_path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                return False
     try:
         with lease_path.open("x", encoding="utf-8") as fh:
-            fh.write(datetime.now().astimezone().isoformat(timespec="seconds") + "\n")
+            payload = {
+                "request_id": request_id,
+                "handled_by": "gemini",
+                "pid": os.getpid(),
+                "created_at": now.isoformat(timespec="seconds"),
+                "expires_at": datetime.fromtimestamp(
+                    now_ts + lease_ttl_seconds, tz=now.tzinfo
+                ).isoformat(timespec="seconds"),
+                "lease_ttl_seconds": lease_ttl_seconds,
+            }
+            fh.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
         return True
     except FileExistsError:
         return False
+
+
+def write_pid_file(
+    pid_file_path: Path,
+    requests_dir: Path,
+    poll_seconds: float,
+    lease_ttl_seconds: int,
+) -> None:
+    pid_file_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "handled_by": "gemini",
+        "pid": os.getpid(),
+        "requests_dir": str(requests_dir),
+        "poll_seconds": poll_seconds,
+        "lease_ttl_seconds": lease_ttl_seconds,
+        "started_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+    }
+    pid_file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def remove_pid_file(pid_file_path: Path | None) -> None:
+    if pid_file_path is None:
+        return
+    try:
+        pid_file_path.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def watch_requests(
@@ -348,39 +416,65 @@ def watch_requests(
     approval_mode: str,
     timeout_seconds: float,
     preflight: bool,
+    lease_ttl_seconds: int,
+    pid_file_path: Path | None,
 ) -> int:
-    while True:
-        processed = 0
-        for request_path in sorted(requests_dir.glob("*.json")):
-            request = json.loads(request_path.read_text(encoding="utf-8"))
-            if str(request.get("to_agent", "")).lower() != "gemini":
-                continue
-            request_id = request.get("request_id", request_path.stem)
-            response_path = responses_dir / f"{request_id}.json"
-            if response_path.exists():
-                continue
+    stop_state = {"requested": False, "signal": ""}
 
-            lease_path = leases_dir / f"{request_id}.gemini.lock"
-            if not try_acquire_lease(lease_path):
-                continue
+    def _request_stop(signum, _frame) -> None:
+        stop_state["requested"] = True
+        stop_state["signal"] = signal.Signals(signum).name
 
-            out_path = process_request_file(
-                request_path=request_path,
-                output_root=output_root,
-                response_path=response_path,
-                invoke_cli=invoke_cli,
-                model=model,
-                approval_mode=approval_mode,
-                timeout_seconds=timeout_seconds,
-                preflight=preflight,
-            )
-            print(str(out_path))
-            processed += 1
+    old_sigint = signal.getsignal(signal.SIGINT)
+    old_sigterm = signal.getsignal(signal.SIGTERM)
+    signal.signal(signal.SIGINT, _request_stop)
+    signal.signal(signal.SIGTERM, _request_stop)
+    if pid_file_path is not None:
+        write_pid_file(pid_file_path, requests_dir, poll_seconds, lease_ttl_seconds)
 
-        if once:
-            print(f"processed_requests: {processed}")
-            return 0
-        time.sleep(poll_seconds)
+    try:
+        while True:
+            processed = 0
+            for request_path in sorted(requests_dir.glob("*.json")):
+                if stop_state["requested"]:
+                    break
+                request = json.loads(request_path.read_text(encoding="utf-8"))
+                if str(request.get("to_agent", "")).lower() != "gemini":
+                    continue
+                request_id = request.get("request_id", request_path.stem)
+                response_path = responses_dir / f"{request_id}.json"
+                if response_path.exists():
+                    continue
+
+                lease_path = leases_dir / f"{request_id}.gemini.lock"
+                if not try_acquire_lease(lease_path, request_id, lease_ttl_seconds):
+                    continue
+
+                out_path = process_request_file(
+                    request_path=request_path,
+                    output_root=output_root,
+                    response_path=response_path,
+                    invoke_cli=invoke_cli,
+                    model=model,
+                    approval_mode=approval_mode,
+                    timeout_seconds=timeout_seconds,
+                    preflight=preflight,
+                )
+                print(str(out_path))
+                processed += 1
+
+            if once:
+                print(f"processed_requests: {processed}")
+                return 0
+            if stop_state["requested"]:
+                print(f"shutdown_requested: {stop_state['signal'] or 'unknown'}")
+                print(f"processed_requests: {processed}")
+                return 0
+            time.sleep(poll_seconds)
+    finally:
+        remove_pid_file(pid_file_path)
+        signal.signal(signal.SIGINT, old_sigint)
+        signal.signal(signal.SIGTERM, old_sigterm)
 
 
 def main() -> int:
@@ -399,6 +493,8 @@ def main() -> int:
     parser.add_argument("--approval-mode", default="plan")
     parser.add_argument("--timeout-seconds", type=float, default=45.0)
     parser.add_argument("--preflight", action="store_true")
+    parser.add_argument("--lease-ttl-seconds", type=int, default=60)
+    parser.add_argument("--pid-file")
     args = parser.parse_args()
 
     output_root = Path(args.output_root)
@@ -420,6 +516,8 @@ def main() -> int:
             approval_mode=args.approval_mode,
             timeout_seconds=args.timeout_seconds,
             preflight=args.preflight,
+            lease_ttl_seconds=args.lease_ttl_seconds,
+            pid_file_path=Path(args.pid_file) if args.pid_file else (leases_dir / "gemini.pid"),
         )
 
     if not args.request_json:

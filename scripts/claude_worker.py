@@ -49,6 +49,8 @@ def main() -> int:
     parser.add_argument("--model")
     parser.add_argument("--timeout-seconds", type=float, default=45.0)
     parser.add_argument("--preflight", action="store_true")
+    parser.add_argument("--lease-ttl-seconds", type=int, default=60)
+    parser.add_argument("--pid-file")
     args = parser.parse_args()
 
     output_root = Path(args.output_root)
@@ -66,6 +68,8 @@ def main() -> int:
             model=args.model,
             timeout_seconds=args.timeout_seconds,
             preflight=args.preflight,
+            lease_ttl_seconds=args.lease_ttl_seconds,
+            pid_file_path=Path(args.pid_file) if args.pid_file else (base_dir / "leases" / "claude.pid"),
             prompt_builder=claude_prompt_builder,
             cli_invoker=claude_cli_invoker,
         )

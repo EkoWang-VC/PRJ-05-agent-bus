@@ -75,7 +75,7 @@ status: review-candidate
 - `responses/`
   预留：已完成响应
 - `leases/`
-  预留：锁、租约、心跳
+  锁、租约、pid 文件；worker 默认写入 JSON lease/pid 元数据
 
 ## 多 Agent 说明
 
@@ -102,6 +102,27 @@ status: review-candidate
 
 当前仍是原型仓，但已经进入项目化管理和可审查状态。
 
+### Lease 与 Watch 约定
+
+- lease 文件路径：
+  `leases/<request_id>.<agent>.lock`
+- lease 文件内容：
+  JSON，至少包含
+  - `request_id`
+  - `handled_by`
+  - `pid`
+  - `created_at`
+  - `expires_at`
+  - `lease_ttl_seconds`
+- 默认 `lease_ttl_seconds = 60`
+- 若旧 lease 已过期，worker 会自动回收后重新认领 request
+- watch 模式默认写入 pid 文件：
+  - `leases/claude.pid`
+  - `leases/claude-ds.pid`
+  - `leases/codex.pid`
+  - `leases/gemini.pid`
+- watch 模式支持 `SIGINT` / `SIGTERM` 优雅退出，当前轮扫描结束后会主动清理 pid 文件
+
 ### 最小原型命令
 
 ```bash
@@ -117,7 +138,7 @@ python3 scripts/gemini_worker.py \
   --output-root "."
 
 python3 scripts/gemini_worker.py \
-  --watch --once --poll-seconds 1 --output-root "."
+  --watch --once --poll-seconds 1 --output-root "." --lease-ttl-seconds 60
 
 python3 scripts/gemini_worker.py \
   "requests/REQ-TEST-20260501-CONTENT-20260504-02.json" \
@@ -126,11 +147,11 @@ python3 scripts/gemini_worker.py \
 python3 scripts/queue_sync.py
 
 python3 scripts/claude_worker.py \
-  --watch --once --poll-seconds 1 --output-root "."
+  --watch --once --poll-seconds 1 --output-root "." --lease-ttl-seconds 60
 
 python3 scripts/claude_ds_worker.py \
-  --watch --once --poll-seconds 1 --output-root "."
+  --watch --once --poll-seconds 1 --output-root "." --lease-ttl-seconds 60
 
 python3 scripts/codex_worker.py \
-  --watch --once --poll-seconds 1 --output-root "."
+  --watch --once --poll-seconds 1 --output-root "." --lease-ttl-seconds 60
 ```
