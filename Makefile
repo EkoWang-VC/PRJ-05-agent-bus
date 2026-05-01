@@ -17,7 +17,7 @@ test:
 registry-check:
 	$(PYTHON) scripts/check_registry.py --registry registry.json --repo-root .
 
-smoke: test
+smoke: test registry-check
 	$(PYTHON) scripts/queue_sync.py --requests-dir requests --responses-dir responses --out $(SMOKE_REPORT)
 	@printf 'smoke_report=%s\n' "$(SMOKE_REPORT)"
 

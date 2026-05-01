@@ -26,8 +26,9 @@ make smoke-cli AGENT=gemini REQUEST=requests/REQ-XXX.json
 推荐顺序：
 
 1. `make test`
-2. `make smoke`
-3. 需要验证真实模型链路时，再跑 `make smoke-cli` 或 `make smoke-cli-example`
+2. `make registry-check`
+3. `make smoke`
+4. 需要验证真实模型链路时，再跑 `make smoke-cli` 或 `make smoke-cli-example`
 
 ## 二、命令用途
 
@@ -40,6 +41,7 @@ make smoke-cli AGENT=gemini REQUEST=requests/REQ-XXX.json
 ### 2. `make smoke`
 
 - 先跑 `make test`
+- 再跑 `make registry-check`
 - 再执行一次 `queue_sync.py`
 - 默认输出：
   - `/tmp/agent-bus-queue-sync-smoke.md`
@@ -47,6 +49,7 @@ make smoke-cli AGENT=gemini REQUEST=requests/REQ-XXX.json
 适合确认：
 
 - `tests/` 仍然通过
+- `registry.json` 仍与仓库结构一致
 - `queue_sync.py` 没有被改坏
 - 报告输出路径正常
 
@@ -114,7 +117,17 @@ make smoke-cli-example AGENT=claude-ds
   - `error_code`
   - `queue_readiness`
 
-### 3. `leases/`
+### 3. `registry.json`
+
+- agent 运行清单
+- 重点看：
+  - `accepts_bus_requests`
+  - `worker_script`
+  - `response_profile`
+  - `default_timeout_seconds`
+  - `default_lease_ttl_seconds`
+
+### 4. `leases/`
 
 - lock 与 pid 元数据
 - lock 文件格式：
@@ -280,10 +293,11 @@ make smoke-cli-example AGENT=claude-ds
 遇到问题时，按这个顺序最省时间：
 
 1. `make test`
-2. `make smoke`
-3. 看 `responses/*.json` 的 `error_code`
-4. 看 `leases/` 与 pid 文件
-5. 手工跑最小 CLI 命令
+2. `make registry-check`
+3. `make smoke`
+4. 看 `responses/*.json` 的 `error_code`
+5. 看 `leases/` 与 pid 文件
+6. 手工跑最小 CLI 命令
 6. 再判断是：
    - request/schema 问题
    - worker 路由问题

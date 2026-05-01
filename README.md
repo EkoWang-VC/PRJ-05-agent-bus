@@ -3,8 +3,8 @@ tags:
   - vibe-coding/workflow
   - agent-bus
 created: 2026-05-01
-updated: 2026-05-01
-status: review-candidate
+updated: 2026-05-02
+status: active
 ---
 
 # AGENT-BUS
@@ -15,8 +15,8 @@ status: review-candidate
 
 - 独立项目代码仓
 - 与 `70-Vibe Coding (Vibe Coding)/04-工作流 (Workflow)/` 下的流程文档联动
-- 当前版本 `v0.1.0`
-- 当前阶段：`待 Claude 首轮审查`
+- 当前版本 `v0.2.0`
+- 当前阶段：`原型可运行，已具备回归、smoke 与 registry 健康检查`
 
 工作流侧入口：
 
@@ -59,13 +59,13 @@ status: review-candidate
 - `scripts/claude_worker.py`
   Claude 的通用 CLI worker 原型
 - `scripts/claude_ds_worker.py`
-  Claude-DS 的独立 CLI worker 原型；默认直接调用 `claude`，并仅在 Claude 子进程级注入 DeepSeek 兼容环境，单独占用 `claude-ds` 路由、lease 和 response
+  Claude-DS 的独立 CLI worker 原型；默认通过独立 worker 调用 `claude` CLI，并仅在 Claude 子进程级注入 DeepSeek 兼容环境，单独占用 `claude-ds` 路由、lease 和 response
 - `scripts/codex_worker.py`
   Codex 的通用 CLI worker 原型
 - `scripts/worker_common.py`
   Claude / Claude-DS / Codex 共用的多 Agent worker 核心
 - `scripts/queue_sync.py`
-  读取 `requests/` + `responses/`，生成面向 `TASK-QUEUE` 的推进建议报告，并标记孤儿 request / 幽灵 response
+  读取 `requests/` + `responses/` + `registry.json`，生成面向 `TASK-QUEUE` 的推进建议报告，并标记孤儿 request / 不可调度 request / 幽灵 response
 - `examples/request.example.json`
   请求样例
 - `examples/response.example.json`
@@ -178,7 +178,7 @@ python3 scripts/codex_worker.py \
   - 校验 `registry.json` 与当前仓库布局是否一致
   - 检查 `worker_script`、`response_profile`、超时与 lease 配置等字段
 - `make smoke`
-  - 先跑 `make test`
+  - 先跑 `make test` + `make registry-check`
   - 再跑一次 `queue_sync.py`
   - 默认把 smoke 报告写到 `/tmp/agent-bus-queue-sync-smoke.md`
   - 同时检查 request 指向的 agent 是否在 `registry.json` 中可调度
@@ -200,9 +200,13 @@ python3 scripts/codex_worker.py \
 
 ### Queue Sync 约定
 
-- `queue_sync.py` 会同时读取 `requests/` 与 `responses/`
+- `queue_sync.py` 会同时读取 `requests/`、`responses/` 与 `registry.json`
 - `孤儿 request`
-  - request 存在，但还没有同名 `response`
+  - request 可调度，但还没有同名 `response`
+- `不可调度 request`
+  - `to_agent` 为空
+  - `to_agent` 未在 `registry.json` 注册
+  - `to_agent` 已注册但当前 `accepts_bus_requests=false`
 - `幽灵 response`
   - response 存在，但没有对应 request
-- 这两个状态都只做报告，不直接改写任何队列文件
+- 这些状态都只做报告，不直接改写任何队列文件
