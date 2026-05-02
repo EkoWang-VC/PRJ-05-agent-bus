@@ -25,7 +25,7 @@ def codex_cli_invoker(
     timeout_seconds: float,
     preflight: bool,
 ) -> tuple[bool, str, str]:
-    cmd = ["codex", "exec", prompt, "-s", "workspace-write"]
+    cmd = ["codex", "exec", prompt, "-s", "workspace-write", "--skip-git-repo-check"]
     if model:
         cmd.extend(["-m", model])
     return invoke_streaming_command(cmd, cwd=output_root, timeout_seconds=timeout_seconds)
