@@ -102,7 +102,8 @@ def invoke_streaming_command(
                     "rate_limited",
                     "auth_error",
                     "network_error",
-                    "approval_blocked",
+                    # approval_blocked excluded: codex header prints "approval: never" as normal startup
+                    # info which triggers false positive; let process finish naturally
                 }:
                     proc.kill()
                     proc.wait(timeout=5)
@@ -384,7 +385,10 @@ def watch_generic_requests(
             for request_path in sorted(requests_dir.glob("*.json")):
                 if stop_state["requested"]:
                     break
-                request = json.loads(request_path.read_text(encoding="utf-8"))
+                try:
+                    request = json.loads(request_path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    continue
                 if str(request.get("to_agent", "")).lower() != handled_by:
                     continue
                 request_id = request.get("request_id", request_path.stem)

@@ -147,6 +147,8 @@ def invoke_gemini_prompt(
         "text",
         "--approval-mode",
         approval_mode,
+        "--include-directories",
+        str(output_root),
     ]
     proc = subprocess.Popen(
         cmd,
@@ -303,10 +305,17 @@ def process_request_file(
                 timeout_seconds=timeout_seconds,
             )
             if ok:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(generated + "\n", encoding="utf-8")
-                output_exists = True
-                output_text = generated
+                validate_strings = request.get("validate_strings", [])
+                missing = [s for s in validate_strings if s not in generated]
+                if missing:
+                    cli_error_code = "output_validation_failed"
+                    cli_error = f"output_validation_failed: missing strings {missing}"
+                    ok = False
+                else:
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    output_path.write_text(generated + "\n", encoding="utf-8")
+                    output_exists = True
+                    output_text = generated
             else:
                 cli_error = generated or "gemini cli invocation failed"
         except RuntimeError as exc:
@@ -438,7 +447,10 @@ def watch_requests(
             for request_path in sorted(requests_dir.glob("*.json")):
                 if stop_state["requested"]:
                     break
-                request = json.loads(request_path.read_text(encoding="utf-8"))
+                try:
+                    request = json.loads(request_path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    continue
                 if str(request.get("to_agent", "")).lower() != "gemini":
                     continue
                 request_id = request.get("request_id", request_path.stem)
