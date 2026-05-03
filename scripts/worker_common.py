@@ -51,6 +51,13 @@ def classify_cli_error(text: str) -> str:
     return "cli_error"
 
 
+def _read_stream_chunk(stream, size: int) -> bytes:
+    reader = getattr(stream, "read1", None)
+    if callable(reader):
+        return reader(size)
+    return stream.read(size)
+
+
 def invoke_streaming_command(
     cmd: list[str],
     cwd: Path,
@@ -89,7 +96,7 @@ def invoke_streaming_command(
 
             events = selector.select(timeout=min(0.5, remaining))
             for key, _ in events:
-                chunk = key.fileobj.read1(4096)
+                chunk = _read_stream_chunk(key.fileobj, 4096)
                 if not chunk:
                     selector.unregister(key.fileobj)
                     continue
@@ -118,6 +125,10 @@ def invoke_streaming_command(
         return_code = proc.wait(timeout=5)
     finally:
         selector.close()
+        if proc.stdout is not None:
+            proc.stdout.close()
+        if proc.stderr is not None:
+            proc.stderr.close()
 
     combined = (b"".join(stdout_chunks) + b"".join(stderr_chunks)).decode(
         "utf-8", errors="replace"

@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.worker_common import invoke_streaming_command
+
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -54,6 +56,16 @@ class AgentBusE2ETest(unittest.TestCase):
         )
         self.assertIn("registry_ok: true", result.stdout)
         self.assertIn("agent_count: 5", result.stdout)
+
+    def test_invoke_streaming_command_supports_plain_file_pipes(self) -> None:
+        ok, output, error_code = invoke_streaming_command(
+            [sys.executable, "-c", "print('OK')"],
+            cwd=REPO_ROOT,
+            timeout_seconds=5.0,
+        )
+        self.assertTrue(ok)
+        self.assertEqual(output.strip(), "OK")
+        self.assertEqual(error_code, "")
 
     def test_worker_check_response_and_queue_sync(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
