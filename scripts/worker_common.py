@@ -56,25 +56,28 @@ def invoke_streaming_command(
     cwd: Path,
     timeout_seconds: float,
     env: dict[str, str] | None = None,
+    stdin_text: str | None = None,
 ) -> tuple[bool, str, str]:
     proc = subprocess.Popen(
         cmd,
+        stdin=subprocess.PIPE if stdin_text is not None else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
         cwd=str(cwd),
-        bufsize=1,
+        bufsize=0,
         env=env if env is not None else os.environ.copy(),
     )
+    if stdin_text is not None and proc.stdin is not None:
+        proc.stdin.write(stdin_text.encode("utf-8"))
+        proc.stdin.close()
     assert proc.stdout is not None
     assert proc.stderr is not None
 
     selector = DefaultSelector()
     selector.register(proc.stdout, EVENT_READ)
     selector.register(proc.stderr, EVENT_READ)
-    stdout_chunks: list[str] = []
-    stderr_chunks: list[str] = []
+    stdout_chunks: list[bytes] = []
+    stderr_chunks: list[bytes] = []
     deadline = time.monotonic() + timeout_seconds
 
     try:
@@ -86,16 +89,18 @@ def invoke_streaming_command(
 
             events = selector.select(timeout=min(0.5, remaining))
             for key, _ in events:
-                line = key.fileobj.readline()
-                if line == "":
+                chunk = key.fileobj.read1(4096)
+                if not chunk:
                     selector.unregister(key.fileobj)
                     continue
                 if key.fileobj is proc.stdout:
-                    stdout_chunks.append(line)
+                    stdout_chunks.append(chunk)
                 else:
-                    stderr_chunks.append(line)
+                    stderr_chunks.append(chunk)
 
-                combined_so_far = "".join(stdout_chunks) + "".join(stderr_chunks)
+                combined_so_far = (
+                    b"".join(stdout_chunks) + b"".join(stderr_chunks)
+                ).decode("utf-8", errors="replace")
                 error_code = classify_cli_error(combined_so_far)
                 if error_code in {
                     "model_capacity_exhausted",
@@ -114,7 +119,9 @@ def invoke_streaming_command(
     finally:
         selector.close()
 
-    combined = "".join(stdout_chunks) + "".join(stderr_chunks)
+    combined = (b"".join(stdout_chunks) + b"".join(stderr_chunks)).decode(
+        "utf-8", errors="replace"
+    )
     cleaned = clean_cli_output(combined)
     if return_code == 0 and cleaned:
         return True, cleaned, ""

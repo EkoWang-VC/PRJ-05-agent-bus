@@ -108,6 +108,7 @@ status: draft
 
 - 非交互能力仍受底层 `claude` CLI 行为影响
 - 不是完全独立的 runtime
+- 默认超时显著高于其他 worker，适合较慢的 DeepSeek 兼容链路
 
 ### `codex`
 

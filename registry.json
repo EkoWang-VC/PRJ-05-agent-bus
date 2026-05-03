@@ -15,7 +15,7 @@
       "supports_invoke_cli": true,
       "supports_preflight": true,
       "response_profile": "generic",
-      "default_timeout_seconds": 45,
+      "default_timeout_seconds": 300,
       "default_lease_ttl_seconds": 60
     },
     {

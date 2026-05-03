@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -64,22 +65,24 @@ def claude_ds_cli_invoker(
     cli_bin: str,
     claude_agent_name: str | None,
 ) -> tuple[bool, str, str]:
-    cmd = [
+    raw_cmd = [
         cli_bin,
         "-p",
-        prompt,
+        "-",
         "--output-format",
         "text",
         "--permission-mode",
-        "plan",
+        "dontAsk",
         "--no-session-persistence",
-        "--append-system-prompt",
-        CLAUDE_DS_SYSTEM_PROMPT,
+        "--bare",
     ]
+    raw_cmd.extend(["--effort", "low" if preflight else "high"])
+    if not preflight:
+        raw_cmd.extend(["--append-system-prompt", CLAUDE_DS_SYSTEM_PROMPT])
     if claude_agent_name:
-        cmd.extend(["--agent", claude_agent_name])
+        raw_cmd.extend(["--agent", claude_agent_name])
     if model:
-        cmd.extend(["--model", model])
+        raw_cmd.extend(["--model", model])
 
     env = os.environ.copy()
     for key in (
@@ -104,13 +107,18 @@ def claude_ds_cli_invoker(
     env.setdefault("ANTHROPIC_DEFAULT_SONNET_MODEL", "deepseek-v4-pro")
     env.setdefault("ANTHROPIC_DEFAULT_HAIKU_MODEL", "deepseek-v4-flash")
     env.setdefault("CLAUDE_CODE_SUBAGENT_MODEL", "deepseek-v4-flash")
-    env.setdefault("CLAUDE_CODE_EFFORT_LEVEL", "max")
+    env.setdefault("CLAUDE_CODE_EFFORT_LEVEL", "high")
+
+    # Resolve shell functions / login-shell PATH such as the user's `claude-ds()`
+    # definition in ~/.zshrc, instead of relying on the Python process PATH.
+    cmd = ["/bin/zsh", "-lic", shlex.join(raw_cmd)]
 
     return invoke_streaming_command(
         cmd,
         cwd=output_root,
         timeout_seconds=timeout_seconds,
         env=env,
+        stdin_text=prompt,
     )
 
 
@@ -127,9 +135,9 @@ def main() -> int:
     parser.add_argument("--leases-dir")
     parser.add_argument("--invoke-cli", action="store_true")
     parser.add_argument("--model")
-    parser.add_argument("--timeout-seconds", type=float, default=45.0)
+    parser.add_argument("--timeout-seconds", type=float, default=300.0)
     parser.add_argument("--preflight", action="store_true")
-    parser.add_argument("--cli-bin", default="claude")
+    parser.add_argument("--cli-bin", default="claude-ds")
     parser.add_argument("--claude-agent-name")
     parser.add_argument("--lease-ttl-seconds", type=int, default=60)
     parser.add_argument("--pid-file")

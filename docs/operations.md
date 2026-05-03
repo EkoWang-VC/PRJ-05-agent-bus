@@ -240,9 +240,13 @@ make smoke-cli-example AGENT=claude-ds
 
 当前实现特点：
 
+- 默认通过登录 shell 调用 `claude-ds`
 - `claude_ds_worker.py` 只在 Claude 子进程级注入 DeepSeek 兼容环境
 - 会主动清理代理环境
 - 会把 `DEEPSEEK_API_KEY` 映射为 `ANTHROPIC_API_KEY`
+- 默认 `TIMEOUT=120`
+- 对 `claude-ds` 建议显式提高 `TIMEOUT`，默认 worker 超时已提升到 `300`
+- 默认启用 `--bare`，减少插件、记忆和会话附带开销
 
 如果 `claude-ds` smoke 失败，优先分两层判断：
 
